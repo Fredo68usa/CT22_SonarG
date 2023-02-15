@@ -14,9 +14,9 @@ cat /etc/sysconfig/jsonar
 
 ================
 
-ldap : echo "Test" -> /dev/tcp/visamnoce01/3268
+ldap : echo "Test" -> /dev/tcp/ldapserver/3268
 
-ldaps : echo "Test" -> /dev/tcp/visamnoce01/3269
+ldaps : echo "Test" -> /dev/tcp/ldapserver/3269
 
  
 
@@ -45,7 +45,7 @@ openssl x509 -in Root-CA.pem -noout -text
  
 
 Verif of Crypto configuration for User Sync. Must be successfull (return code at 0)
-openssl s_client -CAfile /jsonar/jsonar/local/certs/Root-CA.pem -showcerts -connect visamnoce01.visa.com:3269
+openssl s_client -CAfile /jsonar/jsonar/local/certs/Root-CA.pem -showcerts -connect ldapserver.com:3269
 
 Crypto for Openssl
 
@@ -55,7 +55,7 @@ Crypto for Openssl
 
 ==============
 
-[root@sl73damapd004 etc]# find / -name "ldap.conf"
+[root@server etc]# find / -name "ldap.conf"
 /opt/sonarfinder/sonarFinder/dispatcher.conf.ref/ldap.conf
 /etc/openldap/ldap.conf
 /root/ldap.conf
@@ -90,7 +90,7 @@ TLS_REQCERT DEMAND
 SASL_NOCANON    on
 
 2.2 Testing ldaps connection
-ldapsearch -LLL -x -H ldap://visamnoce01:3268 -b "ou=ISO,dc=visa,dc=com" -D "cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com" -W memberOf=ou=ISO,dc=visa,dc=com
+ldapsearch -LLL -x -H ldap://ldapaserver:3268 -b "ou=ISO,dc=ct22,dc=com" -D "cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com" -W memberOf=ou=ISO,dc=visa,dc=com
 ldapsearch -LLL -d 1 -x -H ldaps://visamnoce01:3269 -b "ou=ISO,dc=visa,dc=com" -D "cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com" -W memberOf=ou=ISO,dc=visa,dc=com
 
  
