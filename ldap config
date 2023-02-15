@@ -153,10 +153,10 @@ WantedBy=multi-user.target
 
  
 
-3.3 Encrypted of the svcADImperva Password
+3.3 Encrypted of the svcAcct Password
 ------------------------------------------------------
 
-3.3.1 - Encryption of the svcADImperva Password
+3.3.1 - Encryption of the svcAcct Password
 export $(cat /etc/sysconfig/jsonar)
 jsonar/apps/4.6.b/bin/python3 /jsonar/jsonar/apps/4.6.b/sonarfinder/encrypt_password.py --encryptonly
 
@@ -236,7 +236,7 @@ In mongo shell to see the users downloaded from ldap
 use $external
 db.getusers()
 
-CAUTION : The Users are downloaded into a collection called ladap_test. We need to verify the name with Imperva.
+CAUTION : The Users are downloaded into a collection called xxxxx . We need to verify the name with Imperva.
 
  
 
@@ -247,8 +247,8 @@ CAUTION : The Users are downloaded into a collection called ladap_test. We need 
 Both Labels [ldap_ct22_user_sync] & [ldap_ct22]  are needed. They are 2 jobs that must be scheduled in the GUI
 
 
-[ldap_visa]
-ldap_username = cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com
+[ldap_ct22]
+ldap_username = cn=svcAcct,OU=Special Accounts,OU=ISO,DC=ct22,DC=com
 ldap_password = NEWLY COMPUTED ENCRYPTED PASSWORD
 ldap_address = ldapServer.ct22.COM:3269
 ldap_base = ou=ISO,dc=ct22,dc=com
@@ -273,11 +273,11 @@ ldap_cert=/jsonar/local/certs/Root-CA.pem
 ldap_key=
 
 
-[ldap_visa_user_sync]
-ldap_username = cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=ct22,DC=com
+[ldap_ct22_user_sync]
+ldap_username = cn=svcAcct,OU=Special Accounts,OU=ISO,DC=ct22,DC=com
 ldap_password = xxxxxxxxxxxx== (encrypted one)
-ldap_address = sw730visadc007.visa.com:3269
-ldap_base = ou=ISO,dc=visa,dc=com
+ldap_address = sonarGserver.ct22.com:3269
+ldap_base = ou=ISO,dc=ct22,dc=com
 ldap_query = (memberOf=CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=ct22,DC=com)
 ldap_identify_field = cn
 sonar_username = secAdmin
@@ -292,8 +292,8 @@ multi = true
 group_mapping = {"CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=ct22,DC=com": [{"db": "admin", "role":"root"}]}
 group_app_roles_mapping = {"CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=ct22,DC=com": ["AllGrants"]}
 password_encrypted = true
-#ldap_CA_cert=/jsonar/local/certs/ldapServer.VISA.COM.pem
-#ldap_cert=/jsonar/local/certs/ldapServer.VISA.COM.pem
+#ldap_CA_cert=/jsonar/local/certs/ldapServer.ct22.COM.pem
+#ldap_cert=/jsonar/local/certs/ldapServer.ct22.COM.pem
 ldap_CA_cert=/jsonar/local/certs/Root-CA.pem
 ldap_cert=/jsonar/local/certs/Root-CA.pem
 ldap_key=
@@ -315,7 +315,7 @@ systemctl restart sonard sonardispatcher saslauthd
 
 2.7.1 Set up
 
-ldap_visa & ldap_visa_user_sync
+ldap_ct22 & ldap_ct22_user_sync
 
 Cleanup the "Pending jobs" AND systemctl restart sonardispatcher
 
