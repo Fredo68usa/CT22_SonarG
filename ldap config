@@ -1,0 +1,356 @@
+0 - Procedure - Overview 
+
+================
+
+Get Openssl            to work
+Get ldaps                 to work
+Get saslauthd          to work
+Get sonarg              to work
+cat /etc/sysconfig/jsonar 
+
+ 
+
+00 - Verifying open ports
+
+================
+
+ldap : echo "Test" -> /dev/tcp/visamnoce01/3268
+
+ldaps : echo "Test" -> /dev/tcp/visamnoce01/3269
+
+ 
+
+1 - Get Openssl to work
+
+===============
+
+create the directories as needed and change ownership to sonarw:sonar
+
+To read a cert
+
+openssl x509 -in Root-CA.pem -noout -text
+
+1.1 put in place the Root certificate
+
+- needed certs
+
+/etc/openldap/certs/Root-CA.pem                   ---- To get OpenSSL to work
+
+ 
+
+ 
+
+1.3 Verify the connection
+
+ 
+
+Verif of Crypto configuration for User Sync. Must be successfull (return code at 0)
+openssl s_client -CAfile /jsonar/jsonar/local/certs/Root-CA.pem -showcerts -connect visamnoce01.visa.com:3269
+
+Crypto for Openssl
+
+ 
+
+2 - Get ldaps to work
+
+==============
+
+[root@sl73damapd004 etc]# find / -name "ldap.conf"
+/opt/sonarfinder/sonarFinder/dispatcher.conf.ref/ldap.conf
+/etc/openldap/ldap.conf
+/root/ldap.conf
+
+ 
+
+2.1 Set up ldap.conf
+
+/etc/openldap/ldap.conf
+
+[root@sl73damapp04 ~]# cat /etc/openldap/ldap.conf
+#
+# LDAP Defaults
+#
+
+# See ldap.conf(5) for details
+# This file should be world readable but not world writable.
+
+#BASE   dc=example,dc=com
+#URI    ldap://ldap.example.com ldap://ldap-master.example.com:666
+
+#SIZELIMIT      12
+#TIMELIMIT      15
+#DEREF          never
+
+TLS_CACERTDIR   /etc/openldap/certs
+TLS_CACERT      /etc/openldap/certs/Root-CA.pem
+TLS_CERT        /etc/openldap/certs/Root-CA.pem
+TLS_REQCERT DEMAND
+
+# Turning this off breaks GSSAPI used with krb5 when rdns = false
+SASL_NOCANON    on
+
+2.2 Testing ldaps connection
+ldapsearch -LLL -x -H ldap://visamnoce01:3268 -b "ou=ISO,dc=visa,dc=com" -D "cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com" -W memberOf=ou=ISO,dc=visa,dc=com
+ldapsearch -LLL -d 1 -x -H ldaps://visamnoce01:3269 -b "ou=ISO,dc=visa,dc=com" -D "cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com" -W memberOf=ou=ISO,dc=visa,dc=com
+
+ 
+
+ 
+
+3 - get saslauthd
+=========================================
+
+ 
+
+3.1 - Installing saslauthd
+
+3.1.1 cyrus-sasl
+
+sudo yum install cyrus-sasl
+
+ 
+
+3.1.1 Installing saslauthd-jsonar as saslauthd symlink
+
+[root@sl73damapd004 ~]# cd /usr/sbin/
+[root@sl73damapd004 sbin]# ll sas*
+lrwxrwxrwx 1 root root     16 Apr 20 21:04 saslauthd -> saslauthd-jsonar
+-rwxr-xr-x 1 root root  94816 Feb 18 16:33 saslauthd.04192022
+-rwxr-xr-x 1 root root 355280 Jun 24  2021 saslauthd-jsonar
+-rwxr-xr-x 1 root root  94912 Nov 27  2017 saslauthd.orig
+-rwxr-xr-x 1 root root  19720 Feb 18 16:33 sasldblistusers2
+-rwxr-xr-x 1 root root  15448 Feb 18 16:33 saslpasswd2
+[root@sl73damapd004 sbin]#
+
+3.2 - Config Files
+
+3.2.1 - /etc/sysconfig/saslauthd
+
+change the following parameter:
+
+MECH=ldap
+
+3.2.2 - saslauthd.service
+
+Make sure it is like below
+
+cat /usr/lib/systemd/system/saslauthd.service
+[root@sl73damapd004 ~]# cat /usr/lib/systemd/system/saslauthd.service
+[Unit]
+Description=SASL authentication daemon.
+After=syslog.target 
+
+[Service]
+Type=forking
+PIDFile=/run/saslauthd/saslauthd.pid
+EnvironmentFile=/etc/sysconfig/saslauthd
+ExecStart=/usr/sbin/saslauthd -m $SOCKETDIR -a $MECH $FLAGS
+RuntimeDirectory=saslauthd
+
+[Install]
+WantedBy=multi-user.target
+[root@sl73damapd004 ~]#
+
+ 
+
+3.3 Encrypted of the svcADImperva Password
+------------------------------------------------------
+
+3.3.1 - Encryption of the svcADImperva Password
+export $(cat /etc/sysconfig/jsonar)
+/jsonar/jsonar/apps/4.6.b/bin/python3 /jsonar/jsonar/apps/4.6.b/sonarfinder/encrypt_password.py --encryptonly
+
+/jsonar/jsonar/apps/4.4.c/bin/python3 /jsonar/jsonar/apps/4.4.c/sonarfinder/encrypt_password.py --encryptonly
+
+ 
+
+3.3.1 - Encrypted password in saslauthd.conf
+
+vi /etc/saslauthd.conf
+
+Replace the encrypted password with the one computed for the appliance
+
+
+In /etc/saslauthd.conf
+
+[root@sl73damapd004 ]# cat /etc/saslauthd.conf
+#ldap_servers: ldap://sw730visadc007.visa.com:3268
+#ldap_servers: ldaps://sw730visadc007.visa.com:3269
+ldap_servers: ldaps://visamnoce01.visa.com:3269
+#ldap_search_base: OU=Groups,OU=ISO,DC=visa,DC=com
+ldap_search_base: dc=visa,dc=com
+ldap_timeout: 10
+#ldap_filter: (&(objectCategory=person)(objectClass=user)(sAMAccountName={0}))
+ldap_filter: (|(userPrincipalName=%u)(SAMACCOUNTNAME=%u)(CN=%u))
+ldap_bind_dn: CN=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com
+ldap_deref: never
+ldap_restart: yes
+ldap_scope: sub
+ldap_use_sasl: no
+ldap_start_tls: no
+ldap_version: 3
+ldap_auth_method: bind
+ldap_debug: 10
+ldap_jsonar_enc_keyfile: /jsonar/jsonar/local/ssl/client/admin/cert.pem
+ldap_jsonar_enc_password:GwaWB6cicThIat1L1LhMWxsGlgenInE4SGrdS9S4TFsDzXEGzFtU8UFjFMilJFD4ht6x5tWsd5W4TCCYiMyM1w==
+ldap_tls_cacert_file:  /jsonar/jsonar/local/certs/Root-CA.pem
+ldap_tls_cacert_dir: /jsonar/jsonar/local/certs
+[root@sl73damapd004]#
+
+3.3.2 - Restarting saslauthd
+systemctl restart saslauthd
+
+ 
+
+3.4 - Test of SonarUser authentication against ldap with saslauthd - Verification sas
+In mongo shell to see the users to be authenticated by ldap - if 2 was done -
+use $external
+db.getusers()
+
+
+[root@sl73damapd004 ~]# cat sastest.sh 
+# read -p "Username:" USERNAME
+read -p "Password:" -s PASSWORD
+testsaslauthd -u admfredpeti -p $PASSWORD -f /var/run/saslauthd/mux
+[root@sl73damapd004 ~]# 
+
+saslauthd logs in /var/log/messages - grep on saslauthd
+
+1.5 Connecting to Mongo with ldap authentication
+Users MUST be downloaded from LDAP (see 2)
+
+
+export $(cat /etc/sysconfig/jsonar)
+${JSONAR_BASEDIR}/bin/mongo --port 27117 --authenticationMechanism PLAIN --authenticationDatabase '$external' -u "admfredpeti" admin -p 
+
+ 
+
+4 - Get Jsonar to work
+
+===============
+
+ 
+
+In mongo shell to see the users downloaded from ldap
+----------------------------------------------------
+use $external
+db.getusers()
+
+CAUTION : The Users are downloaded into a collection called ladap_test. We need to verify the name with Imperva.
+
+ 
+
+4.1 Set up of  Dispatcher Config File
+------------------------------------------
+/jsonar/jsonar/local/dispatcher/dispatcher.conf
+
+Both Labels [ldap_visa_user_sync] & [ldap_visa]  are needed. They are 2 jobs that must be scheduled in the GUI
+
+
+[ldap_visa]
+ldap_username = cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com
+ldap_password = NEWLY COMPUTED ENCRYPTED PASSWORD
+ldap_address = sw730visadc007.VISA.COM:3269
+ldap_base = ou=ISO,dc=visa,dc=com
+ldap_query = (memberOf=CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=visa,DC=com)
+ldap_identify_field = cn
+sonar_db = sonargd
+sonar_coll = ldap_test
+sonar_username = secAdmin
+sonar_password = NEWLY COMPUTED ENCRYPTED PASSWORD
+sonar_keyfile = 
+sonar_authdb = admin
+q = {"cn": "$$cn"}
+u = {"cn": "$$cn", "manager": "$$manager", "groups": "$$memberOf"}
+d = 
+upsert = true
+multi = true
+group_mapping =
+group_app_roles_mapping =
+password_encrypted = true
+ldap_CA_cert=/jsonar/jsonar/local/certs/Root-CA.pem
+ldap_cert=/jsonar/jsonar/local/certs/Root-CA.pem
+ldap_key=
+
+
+[ldap_visa_user_sync]
+ldap_username = cn=svcADImperva,OU=Special Accounts,OU=ISO,DC=visa,DC=com
+ldap_password = GwaWB6cicThIat1L1LhMWxsGlgenInE4SGrdS9S4TFsDzXEGzFtU8UFjFMilJFD4ht6x5tWsd5W4TCCYiMyM1w==
+ldap_address = sw730visadc007.visa.com:3269
+ldap_base = ou=ISO,dc=visa,dc=com
+ldap_query = (memberOf=CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=visa,DC=com)
+ldap_identify_field = cn
+sonar_username = secAdmin
+sonar_password = GwaWB6cicThIat1L1LhMWxsGlgenInE4SGrdS9S4TFsbBpYHpyJxOEhq3UvUuExbg2P6FO4Kjl3myi4H20Un4Q==
+sonar_keyfile = 
+sonar_authdb = admin
+q = {"cn": "$$cn"}
+u = {"cn": "$$cn", "manager": "$$manager", "groups": "$$memberOf"}
+d = 
+upsert = true
+multi = true
+group_mapping = {"CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=visa,DC=com": [{"db": "admin", "role":"root"}]}
+group_app_roles_mapping = {"CN=WINADM-DAMENG,OU=Groups,OU=ISO,DC=visa,DC=com": ["AllGrants"]}
+password_encrypted = true
+#ldap_CA_cert=/jsonar/jsonar/local/certs/sw730visadc007.VISA.COM.pem
+#ldap_cert=/jsonar/jsonar/local/certs/sw730visadc007.VISA.COM.pem
+ldap_CA_cert=/jsonar/jsonar/local/certs/Root-CA.pem
+ldap_cert=/jsonar/jsonar/local/certs/Root-CA.pem
+ldap_key=
+
+2.5 Restart dispatcher
+systemctl restart sonardispatcher
+
+systemctl restart sonard sonardispatcher saslauthd
+
+ 
+
+2.6 Verif
+
+ tail -f /jsonar/jsonar/logs/dispatcher/dispatcher.log
+
+ 
+
+2.7 - Set up the 2 job in Sonarg
+
+2.7.1 Set up
+
+ldap_visa & ldap_visa_user_sync
+
+Cleanup the "Pending jobs" AND systemctl restart sonardispatcher
+
+Run each job dans that order
+
+2.7.2 Verification
+
+Go to the DW and verify the users got downloaded
+
+ 
+
+3 - openssl - Verification of certs and crypto 
+==============================================
+
+3.1 ssl (opessl)
+
+ 
+
+
+[root@sl73damapp04 ~]# 
+
+ 
+
+ 
+
+ 
+
+Crypto for User sync with ldap
+- needed certs
+
+/jsonar/jsonar/local/certs/Root-CA.pem           ---- For Authentication of the ldap server by the SonarG machine
+
+
+Crypto for saslauth
+- needed certs 
+/jsonar/jsonar/local/ssl/client/admin/cert.pem   ---- For authentication of the SonarG machine by the ldap server
+/jsonar/jsonar/local/certs/Root-CA.pem           ---- For Authentication of the ldap server by the SonarG machine
+
